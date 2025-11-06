@@ -11,6 +11,7 @@ import 'song_detail_tab.dart';
 import 'utils.dart';
 import 'widgets.dart';
 import 'bosbase_service.dart';
+import 'config.dart';
 
 class SongsTab extends StatefulWidget {
   static const title = 'Songs';
@@ -50,9 +51,9 @@ class _SongsTabState extends State<SongsTab> {
   }
 
   Future<bool> _initBosbase() async {
-    final service = BosbaseService(endpoint: 'http://192.168.37.129:8090');
+    final service = BosbaseService(endpoint: AppConfig.endpoint);
     try {
-      await service.authSuperuser('a@qq.com', 'bosbasepass');
+      await service.authSuperuser(AppConfig.adminEmail, AppConfig.adminPassword);
       await service.ensureSongsCollection();
       final items = await service.listSongs();
       setState(() {

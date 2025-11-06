@@ -63,14 +63,16 @@ This project is a Flutter application demonstrating how to integrate the Bosbase
 
 ### Configuration
 
-- The default Bosbase endpoint and credentials are defined in `lib/bosbase_service.dart`:
-  - Endpoint: `http://192.168.37.129:8090`
-  - Superuser login: `a@qq.com` / `bosbasepass`
-- To change them, edit:
+- The default Bosbase endpoint and credentials are centralized in `lib/config.dart`:
   ```dart
-  final service = BosbaseService(endpoint: 'http://<your-host>:8090');
-  await service.authSuperuser('<email>', '<password>');
+  class AppConfig {
+    static const String endpoint = 'http://192.168.37.129:8090';
+    static const String adminEmail = 'a@qq.com';
+    static const String adminPassword = 'bosbasepass';
+  }
   ```
+- To change them, update `lib/config.dart` and rebuild the app.
+- Security note: Avoid committing real credentials in public repositories. Use environment-specific config management for production.
 
 ### App Behavior
 
