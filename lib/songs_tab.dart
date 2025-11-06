@@ -5,10 +5,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bosbase/bosbase.dart';
 
 import 'song_detail_tab.dart';
 import 'utils.dart';
 import 'widgets.dart';
+import 'bosbase_service.dart';
 
 class SongsTab extends StatefulWidget {
   static const title = 'Songs';
@@ -24,34 +26,75 @@ class SongsTab extends StatefulWidget {
 }
 
 class _SongsTabState extends State<SongsTab> {
-  static const _itemsLength = 50;
+  static const _fallbackLength = 50;
 
   final _androidRefreshKey = GlobalKey<RefreshIndicatorState>();
 
   late List<MaterialColor> colors;
-  late List<String> songNames;
+  late List<String> songNames; // Fallback data
+
+  BosbaseService? _bos;
+  bool _useSdk = false;
+  List<RecordModel> _sdkSongs = const [];
 
   @override
   void initState() {
-    _setData();
+    _setFallbackData();
+    _initBosbase();
     super.initState();
   }
 
-  void _setData() {
-    colors = getRandomColors(_itemsLength);
-    songNames = getRandomNames(_itemsLength);
+  void _setFallbackData() {
+    colors = getRandomColors(_fallbackLength);
+    songNames = getRandomNames(_fallbackLength);
   }
 
-  Future<void> _refreshData() {
-    return Future.delayed(
-      // This is just an arbitrary delay that simulates some network activity.
-      const Duration(seconds: 2),
-      () => setState(() => _setData()),
-    );
+  Future<bool> _initBosbase() async {
+    final service = BosbaseService(endpoint: 'http://192.168.37.129:8090');
+    try {
+      await service.authSuperuser('a@qq.com', 'bosbasepass');
+      await service.ensureSongsCollection();
+      final items = await service.listSongs();
+      setState(() {
+        _bos = service;
+        _sdkSongs = items;
+        _useSdk = true;
+        colors = getRandomColors(items.length);
+      });
+      return true;
+    } catch (e) {
+      // Fallback remains
+      return false;
+    }
   }
+
+  Future<void> _refreshData() async {
+    if (_useSdk && _bos != null) {
+      try {
+        final items = await _bos!.listSongs();
+        setState(() {
+          _sdkSongs = items;
+          colors = getRandomColors(items.length);
+        });
+      } catch (e) {
+        // If SDK fetch fails, fall back to local logic
+        setState(() {
+          _useSdk = false;
+          _setFallbackData();
+        });
+      }
+    } else {
+      await Future.delayed(
+        const Duration(seconds: 2),
+        () => setState(() => _setFallbackData()),
+      );
+    }
+  }
+
+  int get _itemCount => _useSdk ? _sdkSongs.length : _fallbackLength;
 
   Widget _listBuilder(BuildContext context, int index) {
-    if (index >= _itemsLength) return Container();
+    if (index >= _itemCount) return Container();
 
     // Show a slightly different color palette. Show poppy-ier colors on iOS
     // due to lighter contrasting bars and tone it down on Android.
@@ -59,23 +102,79 @@ class _SongsTabState extends State<SongsTab> {
         ? colors[index]
         : colors[index].shade400;
 
+    final title = _useSdk
+        ? (_sdkSongs[index].getStringValue('name') ?? '')
+        : songNames[index];
+
+    void _openDetail() {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (context) => SongDetailTab(
+            id: index,
+            song: title,
+            color: color,
+          ),
+        ),
+      );
+    }
+
+    Future<void> _confirmDelete() async {
+      if (_useSdk && _bos != null) {
+        final id = _sdkSongs[index].id;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Song'),
+            content: Text('Are you sure to delete "$title"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true) {
+          try {
+            await _bos!.deleteSong(id);
+            setState(() {
+              _sdkSongs.removeAt(index);
+              colors = getRandomColors(_sdkSongs.length);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Deleted successfully')),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Delete failed: $e')),
+            );
+          }
+        }
+      } else {
+        // Fallback delete: remove from local list only
+        setState(() {
+          songNames.removeAt(index);
+          colors = getRandomColors(_itemCount - 1);
+        });
+      }
+    }
+
     return SafeArea(
       top: false,
       bottom: false,
-      child: Hero(
-        tag: index,
-        child: HeroAnimatingSongCard(
-          song: songNames[index],
-          color: color,
-          heroAnimation: const AlwaysStoppedAnimation(0),
-          onPressed: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(
-              builder: (context) => SongDetailTab(
-                id: index,
-                song: songNames[index],
-                color: color,
-              ),
-            ),
+      child: GestureDetector(
+        onLongPress: _confirmDelete,
+        child: Hero(
+          tag: index,
+          child: HeroAnimatingSongCard(
+            song: title,
+            color: color,
+            heroAnimation: const AlwaysStoppedAnimation(0),
+            onPressed: _openDetail,
           ),
         ),
       ),
@@ -121,6 +220,10 @@ class _SongsTabState extends State<SongsTab> {
             icon: const Icon(Icons.shuffle),
             onPressed: _togglePlatform,
           ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _addRandomSong(context),
+          ),
         ],
       ),
       drawer: widget.androidDrawer,
@@ -129,9 +232,13 @@ class _SongsTabState extends State<SongsTab> {
         onRefresh: _refreshData,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          itemCount: _itemsLength,
+          itemCount: _itemCount,
           itemBuilder: _listBuilder,
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _addRandomSong(context),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -145,6 +252,12 @@ class _SongsTabState extends State<SongsTab> {
             onPressed: _togglePlatform,
             child: const Icon(CupertinoIcons.shuffle),
           ),
+          largeTitle: const Text(SongsTab.title),
+          leading: CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () => _addRandomSong(context),
+            child: const Icon(CupertinoIcons.add),
+          ),
         ),
         CupertinoSliverRefreshControl(onRefresh: _refreshData),
         SliverSafeArea(
@@ -154,13 +267,42 @@ class _SongsTabState extends State<SongsTab> {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 _listBuilder,
-                childCount: _itemsLength,
+                childCount: _itemCount,
               ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _addRandomSong(BuildContext context) async {
+    // Ensure SDK is initialized and available
+    if (!_useSdk || _bos == null) {
+      final ok = await _initBosbase();
+      if (!ok || _bos == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bosbase not connected. Add requires SDK.')),
+        );
+        return;
+      }
+    }
+
+    final generatedName = getRandomNames(1).first;
+    try {
+      final rec = await _bos!.addSong(generatedName);
+      setState(() {
+        _sdkSongs.insert(0, rec);
+        colors = getRandomColors(_sdkSongs.length);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Added successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Add failed: $e')),
+      );
+    }
   }
 
   @override
