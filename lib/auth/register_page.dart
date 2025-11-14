@@ -26,15 +26,16 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text,
         name: _nameController.text.trim(),
       );
-      // 注册后自动登录
+      // Auto sign in after successful registration
       await bosService.authUser(
         _emailController.text.trim(),
         _passwordController.text,
       );
+      // Credentials persistence happens inside bosService.authUser
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() => _error = '注册失败：$e');
+      setState(() => _error = 'Registration failed: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -43,7 +44,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('注册')),
+      appBar: AppBar(title: const Text('Register')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -52,7 +53,7 @@ class _RegisterPageState extends State<RegisterPage> {
             children: [
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: '昵称（可选）'),
+                decoration: const InputDecoration(labelText: 'Display name (optional)'),
                 textInputAction: TextInputAction.next,
                 enabled: true,
                 readOnly: false,
@@ -60,7 +61,7 @@ class _RegisterPageState extends State<RegisterPage> {
               TextField(
                 controller: _emailController,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: '邮箱'),
+                decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 enabled: true,
@@ -68,7 +69,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: '密码'),
+                decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _loading ? null : _register(),
@@ -89,12 +90,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('注册并登录'),
+                      : const Text('Register & Sign In'),
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                child: const Text('已有账号？去登录'),
+                child: const Text('Already have an account? Sign In'),
               ),
             ],
           ),

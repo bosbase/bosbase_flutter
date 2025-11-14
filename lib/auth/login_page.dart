@@ -13,12 +13,14 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+  bool _checkingAuto = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _initializeSchemaInBackground();
+    _autoLoginIfPossible();
   }
 
   Future<void> _initializeSchemaInBackground() async {
@@ -28,8 +30,27 @@ class _LoginPageState extends State<LoginPage> {
         AppConfig.adminPassword,
       );
     } catch (e) {
-      // 调试日志输出到控制台，避免影响用户使用
-      debugPrint('初始化失败（不影响登录/注册）：$e');
+      // Debug log only; doesn't affect login/register functionality
+      debugPrint('Initialization failed (not affecting login/register): $e');
+    }
+  }
+
+  Future<void> _autoLoginIfPossible() async {
+    setState(() => _checkingAuto = true);
+    // If already authenticated, navigate directly to home
+    if (bosService.isAuthenticated) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
+    // Try auto sign-in with locally stored credentials
+    final ok = await bosService.tryAutoLogin();
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      // Auto sign-in failed; show the login form for manual input
+      setState(() => _checkingAuto = false);
     }
   }
 
@@ -55,17 +76,29 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('登录')),
+      appBar: AppBar(title: const Text('Sign In')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
           children: [
+            if (_checkingAuto)
+              const Padding(
+                padding: EdgeInsets.only(top: 32.0, bottom: 16.0),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Attempting auto sign-in…')
+                  ],
+                ),
+              ),
+            if (!_checkingAuto) ...[
             TextField(
               controller: _emailController,
               autofocus: true,
-              decoration: const InputDecoration(labelText: '邮箱'),
+              decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               enabled: true,
@@ -73,7 +106,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: '密码'),
+              decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _loading ? null : _login(),
@@ -94,13 +127,14 @@ class _LoginPageState extends State<LoginPage> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('登录'),
+                    : const Text('Sign In'),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pushReplacementNamed(context, '/register'),
-              child: const Text('没有账号？去注册'),
+              child: const Text('No account? Register'),
             ),
+            ],
           ],
         ),
         ),

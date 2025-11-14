@@ -1,4 +1,5 @@
 import 'package:bosbase/bosbase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
 
 class BosbaseService {
@@ -110,9 +111,15 @@ class BosbaseService {
   }
 
   Future<RecordModel> addSong(String name, {String? artist}) async {
+    // 当未指定 artist 时，默认使用当前登录用户的邮箱
+    final defaultArtist = pb.authStore.record?.getStringValue('email');
+    final effectiveArtist = (artist != null && artist.isNotEmpty)
+        ? artist
+        : (defaultArtist?.isNotEmpty == true ? defaultArtist : null);
+
     final body = {
       'name': name,
-      if (artist != null && artist.isNotEmpty) 'artist': artist,
+      if (effectiveArtist != null) 'artist': effectiveArtist,
       if (pb.authStore.record?.id != null) 'owner': pb.authStore.record!.id,
     };
     final record = await pb.collection('songs').create(body: body);
@@ -143,6 +150,8 @@ class BosbaseService {
 
   Future<RecordAuth> authUser(String email, String password) async {
     final auth = await pb.collection('users').authWithPassword(email, password);
+    // 登录成功后持久化凭据（用于下次自动登录）
+    await _persistCredentials(email, password);
     return auth;
   }
 
@@ -162,6 +171,41 @@ class BosbaseService {
 
   Future<void> logout() async {
     pb.authStore.clear();
+    await _clearStoredCredentials();
+  }
+
+  // =====================
+  // 本地持久化与自动登录
+  // =====================
+  Future<void> _persistCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_email', email);
+    await prefs.setString('auth_password', password);
+  }
+
+  Future<void> _clearStoredCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_email');
+    await prefs.remove('auth_password');
+  }
+
+  /// 尝试使用本地存储的登录信息自动登录。
+  /// 返回 true 表示已登录；返回 false 表示未登录或失败。
+  Future<bool> tryAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('auth_email');
+    final password = prefs.getString('auth_password');
+    if ((email == null || email.isEmpty) || (password == null || password.isEmpty)) {
+      return false;
+    }
+    try {
+      await pb.collection('users').authWithPassword(email, password);
+      return pb.authStore.isValid;
+    } catch (_) {
+      // 自动登录失败，清除脏数据以防止下次继续失败
+      await _clearStoredCredentials();
+      return false;
+    }
   }
 }
 

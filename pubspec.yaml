@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
+  shared_preferences: ^2.2.2
   bosbase:
     git:
       url: https://github.com/bosbase/dart-sdk.git

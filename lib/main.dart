@@ -71,7 +71,8 @@ class _PlatformAdaptingHomePageState
   // all 4 possible tabs. This drawer is injected into the songs tab which is
   // actually building the scaffold around the drawer.
   Widget _buildAndroidHomePage(BuildContext context) {
-    return SongsTab(key: songsTabKey, androidDrawer: _AndroidDrawer());
+    // 改为使用底部导航结构，确保底部导航栏始终显示
+    return _AndroidTabScaffold(songsTabKey: songsTabKey);
   }
 
   // On iOS, the app uses a bottom tab paradigm. Here, each tab view sits inside
@@ -196,6 +197,72 @@ class _AndroidDrawer extends StatelessWidget {
                 ),
               );
             },
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Sign Out'),
+            onTap: () async {
+              // Clear authentication and stored credentials, then navigate to login
+              await bosService.logout();
+              Navigator.pop(context); // close drawer
+              // Remove all routes and go to login screen
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Android 使用 BottomNavigationBar，保证底部导航栏在登录后一直显示。
+class _AndroidTabScaffold extends StatefulWidget {
+  const _AndroidTabScaffold({required this.songsTabKey});
+
+  final GlobalKey songsTabKey;
+
+  @override
+  State<_AndroidTabScaffold> createState() => _AndroidTabScaffoldState();
+}
+
+class _AndroidTabScaffoldState extends State<_AndroidTabScaffold> {
+  int _currentIndex = 0;
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      SongsTab(key: widget.songsTabKey, androidDrawer: _AndroidDrawer()),
+      const NewsTab(),
+      const ProfileTab(),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _pages),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        items: const [
+          BottomNavigationBarItem(
+            label: SongsTab.title,
+            icon: SongsTab.androidIcon,
+          ),
+          BottomNavigationBarItem(
+            label: NewsTab.title,
+            icon: NewsTab.androidIcon,
+          ),
+          BottomNavigationBarItem(
+            label: ProfileTab.title,
+            icon: ProfileTab.androidIcon,
           ),
         ],
       ),
