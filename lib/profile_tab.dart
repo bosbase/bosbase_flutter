@@ -4,17 +4,70 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'settings_tab.dart';
 import 'widgets.dart';
 import 'bosbase_service.dart';
 
-class ProfileTab extends StatelessWidget {
+class ProfileTab extends StatefulWidget {
   static const title = 'Profile';
   static const androidIcon = Icon(Icons.person);
   static const iosIcon = Icon(CupertinoIcons.profile_circled);
 
   const ProfileTab({super.key});
+
+  @override
+  State<ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<ProfileTab> {
+  String? _email;
+  String? _avatarUrl;
+  bool _uploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncUser();
+  }
+
+  void _syncUser() {
+    setState(() {
+      _email = bosService.currentUserEmail;
+      _avatarUrl = bosService.currentUserAvatarUrl(thumb: '300x300f');
+    });
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _uploading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final updated = await bosService.updateCurrentUserAvatarBytes(
+        filename: picked.name,
+        bytes: bytes,
+      );
+      // 直接使用返回的最新记录刷新头像与邮箱，避免依赖 authStore 的本地状态
+      setState(() {
+        _email = updated.getStringValue('email') ?? _email;
+        _avatarUrl = bosService.avatarUrlFor(updated, thumb: '300x300f');
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avatar updated successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Avatar update failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
   Widget _buildBody(BuildContext context) {
     return SafeArea(
@@ -22,39 +75,42 @@ class ProfileTab extends StatelessWidget {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(8),
               child: Center(
-                child: Text(
-                  '😼',
-                  style: TextStyle(
-                    fontSize: 80,
-                    decoration: TextDecoration.none,
+                child: GestureDetector(
+                  onTap: _uploading ? null : _pickAndUploadAvatar,
+                  child: CircleAvatar(
+                    radius: 56,
+                    backgroundColor: Colors.green.shade100,
+                    backgroundImage:
+                        _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                    child: _avatarUrl == null
+                        ? const Text('😼', style: TextStyle(fontSize: 48))
+                        : null,
                   ),
                 ),
               ),
             ),
-            const PreferenceCard(
-              header: 'MY INTENSITY PREFERENCE',
-              content: '🔥',
-              preferenceChoices: [
-                'Super heavy',
-                'Dial it to 11',
-                "Head bangin'",
-                '1000W',
-                'My neighbor hates me',
-              ],
+            const SizedBox(height: 12),
+            if (_email != null)
+              Text('Email: ${_email!}', style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: _uploading ? null : _pickAndUploadAvatar,
+                icon: const Icon(Icons.photo_camera),
+                label: _uploading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Change Avatar'),
+              ),
             ),
-            const PreferenceCard(
-              header: 'CURRENT MOOD',
-              content: '🤘🏾🚀',
-              preferenceChoices: [
-                'Over the moon',
-                'Basking in sunlight',
-                'Hello fellow Martians',
-                'Into the darkness',
-              ],
-            ),
+            // Removed preference cards per request
             Expanded(child: Container()),
             const LogOutButton(),
           ],
@@ -70,7 +126,7 @@ class ProfileTab extends StatelessWidget {
 
   Widget _buildAndroid(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(title)),
+      appBar: AppBar(title: const Text(ProfileTab.title)),
       body: _buildBody(context),
     );
   }

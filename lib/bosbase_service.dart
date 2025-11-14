@@ -1,4 +1,5 @@
 import 'package:bosbase/bosbase.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
 
@@ -147,6 +148,7 @@ class BosbaseService {
   // =====================
   bool get isAuthenticated => pb.authStore.isValid;
   RecordModel? get currentUser => pb.authStore.record;
+  String? get currentUserEmail => pb.authStore.record?.getStringValue('email');
 
   Future<RecordAuth> authUser(String email, String password) async {
     final auth = await pb.collection('users').authWithPassword(email, password);
@@ -172,6 +174,92 @@ class BosbaseService {
   Future<void> logout() async {
     pb.authStore.clear();
     await _clearStoredCredentials();
+  }
+
+  // =====================
+  // 用户头像上传/更新
+  // =====================
+  Future<RecordModel> updateCurrentUserAvatarBytes({
+    required String filename,
+    required List<int> bytes,
+  }) async {
+    final user = pb.authStore.record;
+    if (user == null) {
+      throw Exception('Not authenticated');
+    }
+    try {
+      final updated = await pb.collection('users').update(
+        user.id,
+        files: [
+          http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
+        ],
+      );
+      // 注意：AuthStore.record 仅提供 getter，没有公开的 setter；
+      // 这里直接返回服务端返回的最新用户记录，交由调用方刷新界面。
+      return updated;
+    } on ClientException catch (e) {
+      // 若因缺少 avatar 字段导致 400，尝试自动创建该字段后重试
+      if (e.statusCode == 400) {
+        try {
+          await ensureUserAvatarField();
+          final updated = await pb.collection('users').update(
+            user.id,
+            files: [
+              http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
+            ],
+          );
+          // 同上：返回最新记录供调用方使用
+          return updated;
+        } catch (_) {
+          rethrow;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  /// 获取当前用户头像的访问 URL（如果存在）
+  String? currentUserAvatarUrl({String? thumb}) {
+    final user = pb.authStore.record;
+    if (user == null) return null;
+    final filename = user.getStringValue('avatar');
+    if (filename == null || filename.isEmpty) return null;
+    return pb.files.getURL(user, filename, thumb: thumb).toString();
+  }
+
+  /// 根据任意用户记录获取头像 URL（用于更新后立即刷新 UI）
+  String? avatarUrlFor(RecordModel record, {String? thumb}) {
+    final filename = record.getStringValue('avatar');
+    if (filename == null || filename.isEmpty) return null;
+    return pb.files.getURL(record, filename, thumb: thumb).toString();
+  }
+
+  /// 确保 users 集合存在单文件头像字段 avatar
+  Future<void> ensureUserAvatarField() async {
+    await authSuperuser(AppConfig.adminEmail, AppConfig.adminPassword);
+    CollectionModel users;
+    try {
+      users = await pb.collections.getOne('users');
+    } finally {
+      // 不持久保持管理员登录
+    }
+    final fields = (users.fields as List)
+        .map((f) => Map<String, dynamic>.from((f as dynamic).toJson()))
+        .toList();
+    final idx = fields.indexWhere((f) => f['name'] == 'avatar');
+    if (idx == -1) {
+      fields.add({
+        'name': 'avatar',
+        'type': 'file',
+        'maxSelect': 1,
+        'mimeTypes': ['image/jpeg', 'image/png', 'image/webp'],
+        'thumbs': ['100x100', '300x300'],
+        'protected': false,
+      });
+      await pb.collections.update('users', body: {
+        'fields': fields,
+      });
+    }
   }
 
   // =====================

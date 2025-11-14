@@ -16,6 +16,8 @@ dependencies:
   bosbase:
     git:
       url: https://github.com/bosbase/dart-sdk.git
+  http: ^1.1.0
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_lints: ^4.0.0
