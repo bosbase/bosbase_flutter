@@ -10,6 +10,10 @@ import 'profile_tab.dart';
 import 'settings_tab.dart';
 import 'songs_tab.dart';
 import 'widgets.dart';
+import 'bosbase_service.dart';
+import 'auth/login_page.dart';
+import 'auth/register_page.dart';
+import 'config.dart';
 
 void main() => runApp(const MyAdaptingApp());
 
@@ -27,16 +31,13 @@ class MyAdaptingApp extends StatelessWidget {
         primarySwatch: Colors.green,
       ),
       darkTheme: ThemeData.dark(),
-      builder: (context, child) {
-        return CupertinoTheme(
-          // Instead of letting Cupertino widgets auto-adapt to the Material
-          // theme (which is green), this app will use a different theme
-          // for Cupertino (which is blue by default).
-          data: const CupertinoThemeData(),
-          child: Material(child: child),
-        );
+      // 移除 builder 包装，避免潜在的全局覆盖层影响输入事件
+      home: const LoginPage(),
+      routes: {
+        '/home': (_) => const PlatformAdaptingHomePage(),
+        '/login': (_) => const LoginPage(),
+        '/register': (_) => const RegisterPage(),
       },
-      home: const PlatformAdaptingHomePage(),
     );
   }
 }

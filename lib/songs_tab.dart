@@ -51,22 +51,23 @@ class _SongsTabState extends State<SongsTab> {
   }
 
   Future<bool> _initBosbase() async {
-    final service = BosbaseService(endpoint: AppConfig.endpoint);
-    try {
-      await service.authSuperuser(AppConfig.adminEmail, AppConfig.adminPassword);
-      await service.ensureSongsCollection();
-      final items = await service.listSongs();
-      setState(() {
-        _bos = service;
-        _sdkSongs = items;
-        _useSdk = true;
-        colors = getRandomColors(items.length);
-      });
-      return true;
-    } catch (e) {
-      // Fallback remains
-      return false;
+    // 使用共享服务实例；仅在用户已登录时加载 songs
+    final service = bosService;
+    if (service.isAuthenticated) {
+      try {
+        final items = await service.listSongs();
+        setState(() {
+          _bos = service;
+          _sdkSongs = items;
+          _useSdk = true;
+          colors = getRandomColors(items.length);
+        });
+        return true;
+      } catch (e) {
+        return false;
+      }
     }
+    return false;
   }
 
   Future<void> _refreshData() async {
@@ -283,8 +284,9 @@ class _SongsTabState extends State<SongsTab> {
       final ok = await _initBosbase();
       if (!ok || _bos == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bosbase not connected. Add requires SDK.')),
+          const SnackBar(content: Text('请先登录后再添加歌曲。')),
         );
+        Navigator.pushNamed(context, '/login');
         return;
       }
     }
