@@ -102,7 +102,11 @@ class BosbaseService {
   }
 
   Future<List<RecordModel>> listSongs() async {
-    return await pb.collection('songs').getFullList(sort: '-created');
+    // Expand owner to access creator's email in UI
+    return await pb.collection('songs').getFullList(
+      sort: '-created',
+      expand: 'owner',
+    );
   }
 
   Future<RecordModel> addSong(String name, {String? artist}) async {
@@ -117,6 +121,18 @@ class BosbaseService {
 
   Future<void> deleteSong(String id) async {
     await pb.collection('songs').delete(id);
+  }
+
+  Future<RecordModel> updateSong(
+    String id, {
+    String? name,
+    String? artist,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (artist != null) body['artist'] = artist;
+    final updated = await pb.collection('songs').update(id, body: body);
+    return updated;
   }
 
   // =====================

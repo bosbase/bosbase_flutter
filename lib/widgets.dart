@@ -148,6 +148,9 @@ class HeroAnimatingSongCard extends StatelessWidget {
     required this.color,
     required this.heroAnimation,
     this.onPressed,
+    this.subtitle,
+    this.onEdit,
+    this.onDelete,
     super.key,
   });
 
@@ -155,6 +158,9 @@ class HeroAnimatingSongCard extends StatelessWidget {
   final Color color;
   final Animation<double> heroAnimation;
   final VoidCallback? onPressed;
+  final String? subtitle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   double get playButtonSize => 50 + 50 * heroAnimation.value;
 
@@ -178,6 +184,30 @@ class HeroAnimatingSongCard extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Action buttons overlay (edit/delete) shown when in card state
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        tooltip: '编辑',
+                        color: Colors.black54,
+                        onPressed:
+                            heroAnimation.value == 0 ? onEdit : null,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        tooltip: '删除',
+                        color: Colors.black54,
+                        onPressed:
+                            heroAnimation.value == 0 ? onDelete : null,
+                      ),
+                    ],
+                  ),
+                ),
                 // The song title banner slides off in the hero animation.
                 Positioned(
                   bottom: -80 * heroAnimation.value,
@@ -188,12 +218,29 @@ class HeroAnimatingSongCard extends StatelessWidget {
                     color: Colors.black12,
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      song,
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          song,
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (subtitle != null && subtitle!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              subtitle!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

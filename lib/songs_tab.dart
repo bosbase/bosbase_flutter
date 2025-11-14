@@ -108,6 +108,33 @@ class _SongsTabState extends State<SongsTab> {
         ? (_sdkSongs[index].getStringValue('name') ?? '')
         : songNames[index];
 
+    final creatorEmail = _useSdk
+        ? (() {
+            final dynamic expandedOwner = _sdkSongs[index].expand?['owner'];
+            String? email;
+            if (expandedOwner is List) {
+              if (expandedOwner.isNotEmpty) {
+                final first = expandedOwner.first;
+                if (first is RecordModel) {
+                  email = first.getStringValue('email');
+                } else if (first is Map<String, dynamic>) {
+                  final e = first['email'];
+                  if (e is String) email = e;
+                }
+              }
+            } else if (expandedOwner is RecordModel) {
+              email = expandedOwner.getStringValue('email');
+            } else if (expandedOwner is Map<String, dynamic>) {
+              final e = expandedOwner['email'];
+              if (e is String) email = e;
+            }
+            if (email != null && email.isNotEmpty) {
+              return '创建者：$email';
+            }
+            return '';
+          })()
+        : '';
+
     void _openDetail() {
       Navigator.of(context).push<void>(
         MaterialPageRoute(
@@ -118,6 +145,69 @@ class _SongsTabState extends State<SongsTab> {
           ),
         ),
       );
+    }
+
+    Future<void> _editSong() async {
+      if (!_useSdk || _bos == null) return;
+      final record = _sdkSongs[index];
+      final nameController =
+          TextEditingController(text: record.getStringValue('name') ?? '');
+      final artistController =
+          TextEditingController(text: record.getStringValue('artist') ?? '');
+
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('编辑歌曲'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: '名称'),
+                textInputAction: TextInputAction.next,
+              ),
+              TextField(
+                controller: artistController,
+                decoration: const InputDecoration(labelText: '歌手（可选）'),
+                textInputAction: TextInputAction.done,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+
+      if (saved == true) {
+        try {
+          final updated = await _bos!.updateSong(
+            record.id,
+            name: nameController.text.trim(),
+            artist: artistController.text.trim().isEmpty
+                ? null
+                : artistController.text.trim(),
+          );
+          setState(() {
+            _sdkSongs[index] = updated;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('更新成功')),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('更新失败：$e')),
+          );
+        }
+      }
     }
 
     Future<void> _confirmDelete() async {
@@ -174,9 +264,12 @@ class _SongsTabState extends State<SongsTab> {
           tag: index,
           child: HeroAnimatingSongCard(
             song: title,
+            subtitle: creatorEmail,
             color: color,
             heroAnimation: const AlwaysStoppedAnimation(0),
             onPressed: _openDetail,
+            onEdit: _editSong,
+            onDelete: _confirmDelete,
           ),
         ),
       ),
