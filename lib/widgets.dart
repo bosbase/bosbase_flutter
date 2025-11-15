@@ -19,16 +19,12 @@ class PlatformWidget extends StatelessWidget {
 
   @override
   Widget build(context) {
-    assert(
-      defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS,
-      'Unexpected platform $defaultTargetPlatform',
-    );
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android => androidBuilder(context),
-      TargetPlatform.iOS => iosBuilder(context),
-      _ => const SizedBox.shrink(),
-    };
+    // Prefer iOS builder only on iOS; fallback to Android/Material for others
+    final platform = Theme.of(context).platform;
+    if (platform == TargetPlatform.iOS) {
+      return iosBuilder(context);
+    }
+    return androidBuilder(context);
   }
 }
 
@@ -151,6 +147,7 @@ class HeroAnimatingSongCard extends StatelessWidget {
     this.subtitle,
     this.onEdit,
     this.onDelete,
+    this.showActions = true,
     super.key,
   });
 
@@ -161,6 +158,7 @@ class HeroAnimatingSongCard extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final bool showActions;
 
   double get playButtonSize => 50 + 50 * heroAnimation.value;
 
@@ -185,29 +183,30 @@ class HeroAnimatingSongCard extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 // Action buttons overlay (edit/delete) shown when in card state
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 20),
-                        tooltip: '编辑',
-                        color: Colors.black54,
-                        onPressed:
-                            heroAnimation.value == 0 ? onEdit : null,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                        tooltip: '删除',
-                        color: Colors.black54,
-                        onPressed:
-                            heroAnimation.value == 0 ? onDelete : null,
-                      ),
-                    ],
+                if (showActions)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 20),
+                          tooltip: '编辑',
+                          color: Colors.black54,
+                          onPressed:
+                              heroAnimation.value == 0 ? onEdit : null,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          tooltip: '删除',
+                          color: Colors.black54,
+                          onPressed:
+                              heroAnimation.value == 0 ? onDelete : null,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 // The song title banner slides off in the hero animation.
                 Positioned(
                   bottom: -80 * heroAnimation.value,

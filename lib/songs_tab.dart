@@ -108,32 +108,17 @@ class _SongsTabState extends State<SongsTab> {
         ? (_sdkSongs[index].getStringValue('name') ?? '')
         : songNames[index];
 
-    final creatorEmail = _useSdk
+    final creatorEmail = '';
+
+    // Only allow edit/delete if the current user owns the record
+    final bool _canManage = _useSdk && _bos != null
         ? (() {
-            final dynamic expandedOwner = _sdkSongs[index].expand?['owner'];
-            String? email;
-            if (expandedOwner is List) {
-              if (expandedOwner.isNotEmpty) {
-                final first = expandedOwner.first;
-                if (first is RecordModel) {
-                  email = first.getStringValue('email');
-                } else if (first is Map<String, dynamic>) {
-                  final e = first['email'];
-                  if (e is String) email = e;
-                }
-              }
-            } else if (expandedOwner is RecordModel) {
-              email = expandedOwner.getStringValue('email');
-            } else if (expandedOwner is Map<String, dynamic>) {
-              final e = expandedOwner['email'];
-              if (e is String) email = e;
-            }
-            if (email != null && email.isNotEmpty) {
-              return '创建者：$email';
-            }
-            return '';
+            final record = _sdkSongs[index];
+            final creatorId = record.getStringValue('createdBy');
+            final currentId = _bos!.currentUser?.id;
+            return creatorId != null && currentId != null && creatorId == currentId;
           })()
-        : '';
+        : false;
 
     void _openDetail() {
       Navigator.of(context).push<void>(
@@ -259,7 +244,7 @@ class _SongsTabState extends State<SongsTab> {
       top: false,
       bottom: false,
       child: GestureDetector(
-        onLongPress: _confirmDelete,
+        onLongPress: _canManage ? _confirmDelete : null,
         child: Hero(
           tag: index,
           child: HeroAnimatingSongCard(
@@ -270,6 +255,7 @@ class _SongsTabState extends State<SongsTab> {
             onPressed: _openDetail,
             onEdit: _editSong,
             onDelete: _confirmDelete,
+            showActions: _canManage,
           ),
         ),
       ),

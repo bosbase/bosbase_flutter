@@ -67,7 +67,9 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() => _error = '登录失败：$e');
+      // Log detailed error to console only; show friendly English message
+      debugPrint('Sign in failed: $e');
+      setState(() => _error = 'Sign in failed. Please check your email or password and try again.');
     } finally {
       setState(() => _loading = false);
     }

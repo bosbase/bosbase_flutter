@@ -52,18 +52,18 @@ class BosbaseService {
             'required': false,
           },
           {
-            'name': 'owner',
+            'name': 'createBy',
             'type': 'relation',
             'options': {'collectionId': 'users'},
             'required': true,
             'maxSelect': 1,
           },
         ],
-        'listRule': 'owner = @request.auth.id',
-        'viewRule': 'owner = @request.auth.id',
+        'listRule': 'createBy = @request.auth.id',
+        'viewRule': 'createBy = @request.auth.id',
         'createRule': '@request.auth.id != ""',
-        'updateRule': 'owner = @request.auth.id',
-        'deleteRule': 'owner = @request.auth.id',
+        'updateRule': 'createBy = @request.auth.id',
+        'deleteRule': 'createBy = @request.auth.id',
       });
       return;
     }
@@ -72,10 +72,10 @@ class BosbaseService {
     final fields = (songs!.fields as List)
         .map((f) => Map<String, dynamic>.from((f as dynamic).toJson()))
         .toList();
-    final ownerIndex = fields.indexWhere((f) => f['name'] == 'owner');
+    final ownerIndex = fields.indexWhere((f) => f['name'] == 'createBy');
     if (ownerIndex == -1) {
       fields.add({
-        'name': 'owner',
+        'name': 'createBy',
         'type': 'relation',
         'options': {'collectionId': 'users'},
         'required': true,
@@ -95,19 +95,18 @@ class BosbaseService {
 
     await pb.collections.update('songs', body: {
       'fields': fields,
-      'listRule': 'owner = @request.auth.id',
-      'viewRule': 'owner = @request.auth.id',
+      'listRule': 'createBy = @request.auth.id',
+      'viewRule': 'createBy = @request.auth.id',
       'createRule': '@request.auth.id != ""',
-      'updateRule': 'owner = @request.auth.id',
-      'deleteRule': 'owner = @request.auth.id',
+      'updateRule': 'createBy = @request.auth.id',
+      'deleteRule': 'createBy = @request.auth.id',
     });
   }
 
   Future<List<RecordModel>> listSongs() async {
-    // Expand owner to access creator's email in UI
+    // 仅按创建时间倒序列出，无需展开（使用系统字段 createdBy 判断拥有者）
     return await pb.collection('songs').getFullList(
       sort: '-created',
-      expand: 'owner',
     );
   }
 
@@ -121,7 +120,7 @@ class BosbaseService {
     final body = {
       'name': name,
       if (effectiveArtist != null) 'artist': effectiveArtist,
-      if (pb.authStore.record?.id != null) 'owner': pb.authStore.record!.id,
+      // createdBy 由后端自动记录，无需客户端设置
     };
     final record = await pb.collection('songs').create(body: body);
     return record;
