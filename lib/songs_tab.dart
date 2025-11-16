@@ -51,7 +51,7 @@ class _SongsTabState extends State<SongsTab> {
   }
 
   Future<bool> _initBosbase() async {
-    // 使用共享服务实例；仅在用户已登录时加载 songs
+    // Use the shared service instance; only load songs when the user is logged in
     final service = bosService;
     if (service.isAuthenticated) {
       try {
@@ -143,18 +143,18 @@ class _SongsTabState extends State<SongsTab> {
       final saved = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('编辑歌曲'),
+          title: const Text('Edit Song'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: '名称'),
+                decoration: const InputDecoration(labelText: 'Name'),
                 textInputAction: TextInputAction.next,
               ),
               TextField(
                 controller: artistController,
-                decoration: const InputDecoration(labelText: '歌手（可选）'),
+                decoration: const InputDecoration(labelText: 'Artist (optional)'),
                 textInputAction: TextInputAction.done,
               ),
             ],
@@ -162,11 +162,11 @@ class _SongsTabState extends State<SongsTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('保存'),
+              child: const Text('Save'),
             ),
           ],
         ),
@@ -185,11 +185,11 @@ class _SongsTabState extends State<SongsTab> {
             _sdkSongs[index] = updated;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('更新成功')),
+            const SnackBar(content: Text('Updated successfully')),
           );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新失败：$e')),
+            SnackBar(content: Text('Update failed: $e')),
           );
         }
       }
@@ -363,7 +363,7 @@ class _SongsTabState extends State<SongsTab> {
       final ok = await _initBosbase();
       if (!ok || _bos == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录后再添加歌曲。')),
+          const SnackBar(content: Text('Please log in before adding songs.')),
         );
         Navigator.pushNamed(context, '/login');
         return;

@@ -192,14 +192,14 @@ class HeroAnimatingSongCard extends StatelessWidget {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit, size: 20),
-                          tooltip: '编辑',
+                          tooltip: 'Edit',
                           color: Colors.black54,
                           onPressed:
                               heroAnimation.value == 0 ? onEdit : null,
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline, size: 20),
-                          tooltip: '删除',
+                          tooltip: 'Delete',
                           color: Colors.black54,
                           onPressed:
                               heroAnimation.value == 0 ? onDelete : null,
