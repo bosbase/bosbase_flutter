@@ -50,7 +50,7 @@ class _ProfileTabState extends State<ProfileTab> {
         filename: picked.name,
         bytes: bytes,
       );
-      // 直接使用返回的最新记录刷新头像与邮箱，避免依赖 authStore 的本地状态
+      // Directly use latest returned record to refresh avatar and email, avoid depending on authStore's local state
       setState(() {
         _email = updated.getStringValue('email') ?? _email;
         _avatarUrl = bosService.avatarUrlFor(updated, thumb: '300x300f');

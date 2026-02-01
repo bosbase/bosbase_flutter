@@ -15,17 +15,17 @@ class BosbaseService {
   }
 
   // =====================
-  // Superuser (仅用于初始化)
+  // Superuser (only for initialization)
   // =====================
   Future<void> authSuperuser(String email, String password) async {
     await pb.admins.authWithPassword(email, password);
   }
 
-  // 初始化集合与访问规则（需 superuser）
+  // Initialize collection and access rules (requires superuser)
   Future<void> initializeSchemaWithSuperuser(String email, String password) async {
     await authSuperuser(email, password);
-    // 仅初始化业务表，不处理系统 users 表
-    // 如果 songs 已存在，仅在需要时更新字段与规则；不存在则创建
+    // Only initialize business tables, do not handle system users table
+    // If songs already exists, only update fields and rules when needed; if not, create it
     bool exists = true;
     CollectionModel? songs;
     try {
@@ -68,7 +68,7 @@ class BosbaseService {
       return;
     }
 
-    // 已存在：仅校正 owner 字段的 options 以及规则
+    // Already exists: only correct the owner field's options and rules
     final fields = (songs!.fields as List)
         .map((f) => Map<String, dynamic>.from((f as dynamic).toJson()))
         .toList();
@@ -85,7 +85,7 @@ class BosbaseService {
       final f = Map<String, dynamic>.from(fields[ownerIndex]);
       final opts = Map<String, dynamic>.from((f['options'] ?? {}) as Map);
       opts['collectionId'] = 'users';
-      f.remove('collectionId'); // 纠正旧结构
+      f.remove('collectionId'); // Correct old structure
       f['options'] = opts;
       f['type'] = 'relation';
       f['required'] = true;
@@ -104,14 +104,14 @@ class BosbaseService {
   }
 
   Future<List<RecordModel>> listSongs() async {
-    // 仅按创建时间倒序列出，无需展开（使用系统字段 createdBy 判断拥有者）
+    // Only list in reverse order by creation time, no expansion needed (use createdBy system field to determine owner)
     return await pb.collection('songs').getFullList(
       sort: '-created',
     );
   }
 
   Future<RecordModel> addSong(String name, {String? artist}) async {
-    // 当未指定 artist 时，默认使用当前登录用户的邮箱
+    // When artist is not specified, use current logged-in user's email by default
     final defaultArtist = pb.authStore.record?.getStringValue('email');
     final effectiveArtist = (artist != null && artist.isNotEmpty)
         ? artist
@@ -120,7 +120,7 @@ class BosbaseService {
     final body = {
       'name': name,
       if (effectiveArtist != null) 'artist': effectiveArtist,
-      // createdBy 由后端自动记录，无需客户端设置
+      // createdBy is automatically recorded by backend, no need for client to set
     };
     final record = await pb.collection('songs').create(body: body);
     return record;
@@ -143,7 +143,7 @@ class BosbaseService {
   }
 
   // =====================
-  // 普通用户认证与注册
+  // General user authentication and registration
   // =====================
   bool get isAuthenticated => pb.authStore.isValid;
   RecordModel? get currentUser => pb.authStore.record;
@@ -151,7 +151,7 @@ class BosbaseService {
 
   Future<RecordAuth> authUser(String email, String password) async {
     final auth = await pb.collection('users').authWithPassword(email, password);
-    // 登录成功后持久化凭据（用于下次自动登录）
+    // Persist credentials after successful login (for next automatic login)
     await _persistCredentials(email, password);
     return auth;
   }
@@ -176,7 +176,7 @@ class BosbaseService {
   }
 
   // =====================
-  // 用户头像上传/更新
+  // User avatar upload/update
   // =====================
   Future<RecordModel> updateCurrentUserAvatarBytes({
     required String filename,
@@ -193,11 +193,11 @@ class BosbaseService {
           http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
         ],
       );
-      // 注意：AuthStore.record 仅提供 getter，没有公开的 setter；
-      // 这里直接返回服务端返回的最新用户记录，交由调用方刷新界面。
+      // Note: AuthStore.record only provides getter, no public setter;
+      // Here directly return the latest user record from server, let caller refresh UI.
       return updated;
     } on ClientException catch (e) {
-      // 若因缺少 avatar 字段导致 400，尝试自动创建该字段后重试
+      // If 400 caused by missing avatar field, try to auto-create field and retry
       if (e.statusCode == 400) {
         try {
           await ensureUserAvatarField();
@@ -207,7 +207,7 @@ class BosbaseService {
               http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
             ],
           );
-          // 同上：返回最新记录供调用方使用
+          // Same as above: return latest record for caller to use
           return updated;
         } catch (_) {
           rethrow;
@@ -217,7 +217,7 @@ class BosbaseService {
     }
   }
 
-  /// 获取当前用户头像的访问 URL（如果存在）
+  /// Get access URL of current user's avatar (if exists)
   String? currentUserAvatarUrl({String? thumb}) {
     final user = pb.authStore.record;
     if (user == null) return null;
@@ -226,21 +226,21 @@ class BosbaseService {
     return pb.files.getURL(user, filename, thumb: thumb).toString();
   }
 
-  /// 根据任意用户记录获取头像 URL（用于更新后立即刷新 UI）
+  /// Get avatar URL from any user record (used to immediately refresh UI after update)
   String? avatarUrlFor(RecordModel record, {String? thumb}) {
     final filename = record.getStringValue('avatar');
     if (filename == null || filename.isEmpty) return null;
     return pb.files.getURL(record, filename, thumb: thumb).toString();
   }
 
-  /// 确保 users 集合存在单文件头像字段 avatar
+  /// Ensure users collection has single-file avatar field
   Future<void> ensureUserAvatarField() async {
     await authSuperuser(AppConfig.adminEmail, AppConfig.adminPassword);
     CollectionModel users;
     try {
       users = await pb.collections.getOne('users');
     } finally {
-      // 不持久保持管理员登录
+      // Do not persistently keep admin login
     }
     final fields = (users.fields as List)
         .map((f) => Map<String, dynamic>.from((f as dynamic).toJson()))
@@ -262,7 +262,7 @@ class BosbaseService {
   }
 
   // =====================
-  // 本地持久化与自动登录
+  // Local persistence and automatic login
   // =====================
   Future<void> _persistCredentials(String email, String password) async {
     final prefs = await SharedPreferences.getInstance();
@@ -276,8 +276,8 @@ class BosbaseService {
     await prefs.remove('auth_password');
   }
 
-  /// 尝试使用本地存储的登录信息自动登录。
-  /// 返回 true 表示已登录；返回 false 表示未登录或失败。
+  /// Try to auto-login using locally stored login info.
+  /// Return true if logged in; return false if not logged in or failed.
   Future<bool> tryAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString('auth_email');
@@ -289,12 +289,12 @@ class BosbaseService {
       await pb.collection('users').authWithPassword(email, password);
       return pb.authStore.isValid;
     } catch (_) {
-      // 自动登录失败，清除脏数据以防止下次继续失败
+      // Auto login failed, clear dirty data to prevent next failure
       await _clearStoredCredentials();
       return false;
     }
   }
 }
 
-// 共享实例，供全局使用
+// Shared instance for global use
 final BosbaseService bosService = BosbaseService(endpoint: AppConfig.endpoint);

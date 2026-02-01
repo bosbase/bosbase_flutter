@@ -31,7 +31,7 @@ class MyAdaptingApp extends StatelessWidget {
         primarySwatch: Colors.green,
       ),
       darkTheme: ThemeData.dark(),
-      // 移除 builder 包装，避免潜在的全局覆盖层影响输入事件
+      // Remove builder wrapper to avoid potential global overlay affecting input events
       home: const LoginPage(),
       routes: {
         '/home': (_) => const PlatformAdaptingHomePage(),
@@ -71,7 +71,7 @@ class _PlatformAdaptingHomePageState
   // all 4 possible tabs. This drawer is injected into the songs tab which is
   // actually building the scaffold around the drawer.
   Widget _buildAndroidHomePage(BuildContext context) {
-    // 改为使用底部导航结构，确保底部导航栏始终显示
+    // Changed to use bottom navigation structure to ensure bottom navbar always displays
     return _AndroidTabScaffold(songsTabKey: songsTabKey);
   }
 
@@ -219,7 +219,7 @@ class _AndroidDrawer extends StatelessWidget {
   }
 }
 
-// Android 使用 BottomNavigationBar，保证底部导航栏在登录后一直显示。
+// Android uses BottomNavigationBar to ensure bottom navbar displays after login.
 class _AndroidTabScaffold extends StatefulWidget {
   const _AndroidTabScaffold({required this.songsTabKey});
 
